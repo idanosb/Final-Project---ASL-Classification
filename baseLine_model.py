@@ -10,7 +10,7 @@ import os
 if os.path.exists('/data'):
     data_dir = '/data'
 else:
-    data_dir = r'D:\idan\ASLDataWithBackGrounds'
+    data_dir = r'D:\idan\ASLData\asl_alphabet_train'
 # 1. Base settings
 
 batch_size = 64
@@ -55,7 +55,8 @@ class SimpleCNN(nn.Module):
         )
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(64 * 16 * 16, 128),
+            nn.Linear(64 * 16 * 16, 128),# Flatten: [64 channels * 16 height * 16 width] -> 16,384 features
+                                         # Latent space: Compressed to 128 dimensions for classification
             nn.ReLU(),
             nn.Linear(128, num_classes)
         )
