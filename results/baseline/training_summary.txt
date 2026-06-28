@@ -1,0 +1,3 @@
+Training Time: 27m 47s
+Best Validation Accuracy: 98.18%
+Best Model Path: /results/baseline/best_baseline_model.pth
