@@ -1,0 +1,8 @@
+Training Time: 49m 10s
+Best Validation Accuracy: 99.88%
+Best Model Path: /results/VGG16_transfer_learning/VGG16_transfer_learning.pth
+Model: VGG16
+Transfer Learning: Yes
+Frozen layers: VGG16 features initially frozen
+Unfreeze epoch: 6
+Unfrozen layers: model.features[24:]
