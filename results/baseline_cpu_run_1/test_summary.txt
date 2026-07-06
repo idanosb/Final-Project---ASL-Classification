@@ -1,0 +1,5 @@
+========== TEST RESULTS ==========
+Test Accuracy : 98.28%
+Precision     : 98.30%
+Recall        : 98.28%
+F1 Score      : 98.28%
