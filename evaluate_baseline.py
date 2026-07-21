@@ -13,12 +13,22 @@ if os.path.exists("/data/asl_alphabet_test"):
 else:
     test_dir = r"D:\idan\ASLData\asl_alphabet_test"
 
-OUTPUT_DIR = "/results/baseline" if os.path.exists("/results") else "./baseline"
-MODEL_PATH = os.path.join(OUTPUT_DIR, "best_baseline_model.pth")
-
 batch_size = 64
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if not torch.cuda.is_available():
+    raise RuntimeError(
+        "CUDA GPU is required. "
+        "Enable GPU before running this script."
+    )
 
+device = torch.device("cuda")
+# Must match the folder used during training
+run_name = "baseline"
+if os.path.exists("/results"):
+    OUTPUT_DIR = os.path.join("/results", run_name)
+else:
+    OUTPUT_DIR = os.path.join("results", run_name)
+
+MODEL_PATH = os.path.join(OUTPUT_DIR, "best_baseline_model.pth")
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
     transforms.ToTensor(),

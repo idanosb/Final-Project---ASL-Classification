@@ -17,8 +17,13 @@ OUTPUT_DIR = "/results/tuned_baseline" if os.path.exists("/results") else "./tun
 MODEL_PATH = os.path.join(OUTPUT_DIR, "best_tuned_baseline_model.pth")
 
 batch_size = 64
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if not torch.cuda.is_available():
+    raise RuntimeError(
+        "CUDA GPU is required. "
+        "Enable GPU before running this script."
+    )
 
+device = torch.device("cuda")
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
     transforms.ToTensor(),

@@ -17,8 +17,13 @@ else:
 
 batch_size = 128
 epochs = 15
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if not torch.cuda.is_available():
+    raise RuntimeError(
+        "CUDA GPU is required. "
+        "Enable GPU before running this script."
+    )
 
+device = torch.device("cuda")
 print("CUDA available:", torch.cuda.is_available())
 print("Using device:", device)
 
@@ -45,7 +50,7 @@ train_size = int(0.8 * len(full_dataset))
 val_size = len(full_dataset) - train_size
 train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4,     pin_memory=(device.type == "cuda"))
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # 3. Model architecture

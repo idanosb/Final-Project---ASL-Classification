@@ -18,8 +18,13 @@ OUTPUT_DIR = "/results/VGG16_transfer_learning" if os.path.exists("/results") el
 MODEL_PATH = os.path.join(OUTPUT_DIR, "VGG16_transfer_learning.pth")
 
 batch_size = 64
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if not torch.cuda.is_available():
+    raise RuntimeError(
+        "CUDA GPU is required. "
+        "Enable GPU before running this script."
+    )
 
+device = torch.device("cuda")
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
