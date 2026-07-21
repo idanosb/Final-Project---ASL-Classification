@@ -25,6 +25,9 @@ print("Training dataset:", data_dir)
 
 batch_size = 64
 epochs = 10
+num_workers = int(
+    os.environ.get("ASL_NUM_WORKERS", "4")
+)
 if not torch.cuda.is_available():
     raise RuntimeError(
         "CUDA GPU is required. "
@@ -48,14 +51,28 @@ drive_output_dir = os.environ.get("ASL_OUTPUT_DIR")
 
 if drive_output_dir:
     OUTPUT_DIR = os.path.join(drive_output_dir, run_name)
+base_output_dir = os.environ.get("ASL_OUTPUT_DIR")
+
+if base_output_dir:
+    OUTPUT_DIR = os.path.join(
+        base_output_dir,
+        run_name,
+    )
 elif os.path.exists("/results"):
-    OUTPUT_DIR = os.path.join("/results", run_name)
+    OUTPUT_DIR = os.path.join(
+        "/results",
+        run_name,
+    )
 else:
-    OUTPUT_DIR = os.path.join("results", run_name)
+    OUTPUT_DIR = os.path.join(
+        "results",
+        run_name,
+    )
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 print("Results directory:", OUTPUT_DIR)
+
 
 
 
@@ -74,8 +91,8 @@ train_size = int(0.8 * len(full_dataset))
 val_size = len(full_dataset) - train_size
 train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4,     pin_memory=(device.type == "cuda"))
-val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers,     pin_memory=(device.type == "cuda"))
+val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
 # 3. Model architecture
 class SimpleCNN(nn.Module):
