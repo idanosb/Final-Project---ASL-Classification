@@ -23,10 +23,17 @@ if not torch.cuda.is_available():
 device = torch.device("cuda")
 # Must match the folder used during training
 run_name = "baseline"
-if os.path.exists("/results"):
+drive_output_dir = os.environ.get("ASL_OUTPUT_DIR")
+
+if drive_output_dir:
+    OUTPUT_DIR = os.path.join(drive_output_dir, run_name)
+elif os.path.exists("/results"):
     OUTPUT_DIR = os.path.join("/results", run_name)
 else:
     OUTPUT_DIR = os.path.join("results", run_name)
+
+
+print("Results directory:", OUTPUT_DIR)
 
 MODEL_PATH = os.path.join(OUTPUT_DIR, "best_baseline_model.pth")
 transform = transforms.Compose([

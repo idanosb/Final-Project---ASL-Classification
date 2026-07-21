@@ -44,12 +44,19 @@ if torch.cuda.is_available():
 run_name = "baseline"
 # Docker: /results is connected to the project's results folder.
 # Local run: save inside ./results as well.
-if os.path.exists("/results"):
+drive_output_dir = os.environ.get("ASL_OUTPUT_DIR")
+
+if drive_output_dir:
+    OUTPUT_DIR = os.path.join(drive_output_dir, run_name)
+elif os.path.exists("/results"):
     OUTPUT_DIR = os.path.join("/results", run_name)
 else:
     OUTPUT_DIR = os.path.join("results", run_name)
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+print("Results directory:", OUTPUT_DIR)
+
 
 
 best_val_acc = 0.0
