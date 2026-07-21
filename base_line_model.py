@@ -8,11 +8,19 @@ import os
 import time
 
 
-if os.path.exists('/data/asl_alphabet_train'):
-    data_dir = '/data/asl_alphabet_train'
-else:
-    data_dir = r'D:\idan\ASLData\asl_alphabet_train'
+data_dir = os.environ.get("ASL_TRAIN_DIR")
 
+if not data_dir:
+    raise RuntimeError(
+        "ASL_TRAIN_DIR is not defined."
+    )
+
+if not os.path.isdir(data_dir):
+    raise FileNotFoundError(
+        f"Training dataset was not found: {data_dir}"
+    )
+
+print("Training dataset:", data_dir)
 # 1. Base settings
 
 batch_size = 64
