@@ -17,7 +17,13 @@ else:
 
 batch_size = 64
 epochs = 10
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if not torch.cuda.is_available():
+    raise RuntimeError(
+        "CUDA GPU is required. "
+        "Enable GPU in Colab before running this script."
+    )
+
+device = torch.device("cuda")
 
 print("CUDA available:", torch.cuda.is_available())
 print("Using device:", device)
@@ -26,7 +32,15 @@ if torch.cuda.is_available():
     print("GPU:", torch.cuda.get_device_name(0))
     print("Torch CUDA version:", torch.version.cuda)
 
-OUTPUT_DIR = "/results/baseline" if os.path.exists("/results") else "./baseline"
+# GPU -> baseline, CPU -> baseline_cpu_run_1
+run_name = "baseline"
+# Docker: /results is connected to the project's results folder.
+# Local run: save inside ./results as well.
+if os.path.exists("/results"):
+    OUTPUT_DIR = os.path.join("/results", run_name)
+else:
+    OUTPUT_DIR = os.path.join("results", run_name)
+
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -45,7 +59,7 @@ train_size = int(0.8 * len(full_dataset))
 val_size = len(full_dataset) - train_size
 train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4,     pin_memory=(device.type == "cuda"))
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
 # 3. Model architecture
