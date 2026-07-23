@@ -11,7 +11,7 @@ from torchvision.models import vgg16
 # =========================================================
 # Paths
 # =========================================================
-TEST_FOLDER = 'A'
+TEST_FOLDER = 'C'
 
 if os.path.exists("/mydata"):
     base_dir = Path("/mydata")

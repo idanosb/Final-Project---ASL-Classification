@@ -1,4 +1,5 @@
 from pathlib import Path
+from collections import Counter, deque
 
 import cv2
 import torch
@@ -19,6 +20,10 @@ MODEL_PATH = Path(
 CAMERA_INDEX = 0
 CONFIDENCE_THRESHOLD = 70.0
 ROI_SIZE = 350
+SMOOTHING_FRAMES = 10
+TEXT_GAP = 25
+
+prediction_history = deque(maxlen=SMOOTHING_FRAMES)
 
 CLASS_NAMES = [
     "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
@@ -90,7 +95,7 @@ print("Model loaded successfully.")
 # Open the webcam
 # =========================================================
 
-camera = cv2.VideoCapture(0)
+camera = cv2.VideoCapture(CAMERA_INDEX)
 
 if not camera.isOpened():
     raise RuntimeError(
@@ -135,7 +140,7 @@ while True:
         # Convert OpenCV BGR image to RGB
         roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
 
-        # Convert NumPy image to PIL image
+        # Convert the NumPy image to a PIL image
         pil_image = Image.fromarray(roi_rgb)
 
         # Apply the same preprocessing used during training
@@ -157,11 +162,25 @@ while True:
         confidence = confidence_tensor.item() * 100
         predicted_class = CLASS_NAMES[predicted_index]
 
-    # Show the prediction only when confidence is high enough
+    # Add only confident predictions to the smoothing history
     if confidence >= CONFIDENCE_THRESHOLD:
-        display_text = f"{predicted_class} - {confidence:.2f}%"
+        prediction_history.append(predicted_class)
+
+    # Choose the class that appeared most often
+    if prediction_history:
+        smoothed_prediction = Counter(
+        prediction_history
+    ).most_common(1)[0][0]
     else:
+        smoothed_prediction = "Unknown"
+
+    # Prepare the text shown on screen
+    if confidence >= CONFIDENCE_THRESHOLD:
+        display_text = f"{smoothed_prediction} - {confidence:.2f}%"
+        text_color = (0, 255, 0)
+    else:   
         display_text = f"Uncertain - {confidence:.2f}%"
+        text_color = (0, 165, 255)
 
     # Draw the hand placement rectangle
     cv2.rectangle(
@@ -172,11 +191,25 @@ while True:
         2
     )
 
-    # Draw a filled background behind the prediction text
+    # Position the prediction above the ROI with some spacing
+    text_x = x1
+    text_y = max(40, y1 - TEXT_GAP)
+
+    # Calculate the text size for the background rectangle
+    (text_width, text_height), baseline = cv2.getTextSize(
+        display_text,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.0,
+        2
+    )
+
+    padding = 10
+
+    # Draw a black background behind the prediction text
     cv2.rectangle(
         frame,
-        (20, 20),
-        (420, 75),
+        (text_x - padding, text_y - text_height - padding),
+        (text_x + text_width + padding, text_y + baseline + padding),
         (0, 0, 0),
         -1
     )
@@ -185,10 +218,10 @@ while True:
     cv2.putText(
         frame,
         display_text,
-        (30, 58),
+        (text_x, text_y),
         cv2.FONT_HERSHEY_SIMPLEX,
         1.0,
-        (255, 255, 255),
+        text_color,
         2,
         cv2.LINE_AA
     )
