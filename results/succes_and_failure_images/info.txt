@@ -1,0 +1,3 @@
+fail1 should be categorized as "Uncertain" instead of "M"
+fail2 should be "I" instead of "U"
+fail3 sohuld be "N" instead of "M"

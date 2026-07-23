@@ -12,6 +12,7 @@ from torchvision.models import vgg16
 # Paths
 # =========================================================
 TEST_FOLDER = 'C'
+DEBUG_IMAGE_PATH = Path(__file__).resolve().parent / "debug_input.jpg"
 
 if os.path.exists("/mydata"):
     base_dir = Path("/mydata")
@@ -143,7 +144,7 @@ with torch.no_grad():
         expected_class = image_path.parent.name
         image = Image.open(image_path).convert("RGB")
         debug_image = image.resize((224, 224))
-        debug_image.save("/app/debug_input.jpg")
+        debug_image.save(DEBUG_IMAGE_PATH)
 
         image_tensor = transform(image)
         image_tensor = image_tensor.unsqueeze(0)
