@@ -2,30 +2,39 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
-from torchvision.models import vgg16, VGG16_Weights
 from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 import os
 import time
+from pathlib import Path
 
 
-if os.path.exists('/data/asl_alphabet_train'):
-    data_dir = '/data/asl_alphabet_train'
-else:
-    data_dir = r'D:\idan\ASLData\asl_alphabet_train'
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+data_dir = os.environ.get("ASL_TRAIN_DIR")
 
+if not data_dir:
+    raise RuntimeError(
+        "ASL_TRAIN_DIR is not defined."
+    )
+
+if not os.path.isdir(data_dir):
+    raise FileNotFoundError(
+        f"Training dataset was not found: {data_dir}"
+    )
+
+print("Training dataset:", data_dir)
 # 1. Base settings
+
 batch_size = 64
 epochs = 10
-unfreeze_epoch = 5
-
 if not torch.cuda.is_available():
     raise RuntimeError(
         "CUDA GPU is required. "
-        "Enable GPU before running this script."
+        "Enable GPU in Colab before running this script."
     )
 
 device = torch.device("cuda")
+
 print("CUDA available:", torch.cuda.is_available())
 print("Using device:", device)
 
@@ -33,26 +42,36 @@ if torch.cuda.is_available():
     print("GPU:", torch.cuda.get_device_name(0))
     print("Torch CUDA version:", torch.version.cuda)
 
-OUTPUT_DIR = "/results/VGG16_transfer_learning" if os.path.exists("/results") else "./VGG16_transfer_learning"
+# GPU -> baseline, CPU -> baseline_cpu_run_1
+run_name = "baseline"
+# Docker: /results is connected to the project's results folder.
+# Local run: save inside ./results as well.
+drive_output_dir = os.environ.get("ASL_OUTPUT_DIR")
+
+if drive_output_dir:
+    OUTPUT_DIR = os.path.join(drive_output_dir, run_name)
+elif os.path.exists("/results"):
+    OUTPUT_DIR = os.path.join("/results", run_name)
+else:
+    OUTPUT_DIR = PROJECT_ROOT / "results" / run_name
+
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+print("Results directory:", OUTPUT_DIR)
+
+
+
 best_val_acc = 0.0
-BEST_MODEL_PATH = os.path.join(OUTPUT_DIR, "VGG16_transfer_learning.pth")
+BEST_MODEL_PATH = os.path.join(OUTPUT_DIR, "best_baseline_model.pth")
 
 # 2. Data preparation
-weights = VGG16_Weights.DEFAULT
-
 transform = transforms.Compose([
-    transforms.Resize((224, 224)),
+    transforms.Resize((64, 64)),
     transforms.ToTensor(),
-    transforms.Normalize(
-        mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225]
-    )
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 
 full_dataset = datasets.ImageFolder(data_dir, transform=transform)
-
 train_size = int(0.8 * len(full_dataset))
 val_size = len(full_dataset) - train_size
 train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
@@ -60,49 +79,45 @@ train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4,     pin_memory=(device.type == "cuda"))
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-# 3. Model architecture - VGG16 Transfer Learning
-num_classes = len(full_dataset.classes)
+# 3. Model architecture
+class SimpleCNN(nn.Module):
+    def __init__(self, num_classes):
+        super(SimpleCNN, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(64 * 16 * 16, 128),# Flatten: [64 channels * 16 height * 16 width] -> 16,384 features
+                                         # Latent space: Compressed to 128 dimensions for classification
+            nn.ReLU(),
+            nn.Linear(128, num_classes)
+        )
 
-model = vgg16(weights=weights)
-
-# Freeze all convolutional feature layers
-for param in model.features.parameters():
-    param.requires_grad = False
-
-# Replace final classifier layer for ASL classes
-model.classifier[6] = nn.Linear(model.classifier[6].in_features, num_classes)
-
-model = model.to(device)
+    def forward(self, x):
+        x = self.features(x)
+        return self.classifier(x)
 
 # 4. Setup
+model = SimpleCNN(num_classes=len(full_dataset.classes)).to(device)
 criterion = nn.CrossEntropyLoss()
-
-optimizer = optim.Adam(
-    filter(lambda p: p.requires_grad, model.parameters()),
-    lr=0.001
-)
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 train_losses, val_losses = [], []
 train_accuracies, val_accuracies = [], []
 
 # 5. Training loop
-print(f"Starting VGG16 fine-tuning on {device}...")
+print(f"Starting training on {device}...")
 
 start_time = time.time()
 
 for epoch in range(epochs):
-    print(f"--- Starting Epoch {epoch + 1}/{epochs} ---")
-
-    if epoch == unfreeze_epoch:
-        print("Unfreezing last VGG16 convolution block...")
-
-        for param in model.features[24:].parameters():
-            param.requires_grad = True
-
-        optimizer = optim.Adam(
-            filter(lambda p: p.requires_grad, model.parameters()),
-            lr=0.0001
-        )
+    print(f"--- Starting Epoch {epoch+1}/{epochs} ---")
 
     model.train()
     running_loss = 0.0
@@ -111,18 +126,14 @@ for epoch in range(epochs):
 
     for images, labels in train_loader:
         images, labels = images.to(device), labels.to(device)
-
         optimizer.zero_grad()
-
         outputs = model(images)
         loss = criterion(outputs, labels)
-
         loss.backward()
         optimizer.step()
 
         running_loss += loss.item()
         _, predicted = torch.max(outputs.data, 1)
-
         total_train += labels.size(0)
         correct_train += (predicted == labels).sum().item()
 
@@ -137,13 +148,10 @@ for epoch in range(epochs):
     with torch.no_grad():
         for images, labels in val_loader:
             images, labels = images.to(device), labels.to(device)
-
             outputs = model(images)
             loss = criterion(outputs, labels)
-
             val_loss += loss.item()
             _, predicted = torch.max(outputs.data, 1)
-
             total_val += labels.size(0)
             correct_val += (predicted == labels).sum().item()
 
@@ -155,12 +163,7 @@ for epoch in range(epochs):
         torch.save(model.state_dict(), BEST_MODEL_PATH)
         print(f"New best model saved with Val Acc: {best_val_acc:.2f}%")
 
-    print(
-        f"Epoch {epoch + 1} Summary | "
-        f"Train Loss: {train_losses[-1]:.4f} | "
-        f"Val Loss: {val_losses[-1]:.4f} | "
-        f"Val Acc: {val_accuracies[-1]:.2f}%"
-    )
+    print(f"Epoch {epoch+1} Summary | Train Loss: {train_losses[-1]:.4f} | Val Loss: {val_losses[-1]:.4f} | Val Acc: {val_accuracies[-1]:.2f}%")
 
 end_time = time.time()
 elapsed_time = end_time - start_time
@@ -193,11 +196,6 @@ with open(summary_path, "w") as f:
     f.write(f"Training Time: {minutes}m {seconds}s\n")
     f.write(f"Best Validation Accuracy: {best_val_acc:.2f}%\n")
     f.write(f"Best Model Path: {BEST_MODEL_PATH}\n")
-    f.write("Model: VGG16\n")
-    f.write("Transfer Learning: Yes\n")
-    f.write("Frozen layers: VGG16 features initially frozen\n")
-    f.write(f"Unfreeze epoch: {unfreeze_epoch + 1}\n")
-    f.write("Unfrozen layers: model.features[24:]\n")
 
 print(f"Training finished! Results plot saved to {OUTPUT_DIR}")
 print(f"Best model saved to {BEST_MODEL_PATH}")

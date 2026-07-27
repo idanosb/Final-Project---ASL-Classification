@@ -223,9 +223,24 @@ def write_failed_log(failed_log_path, class_name, filename, error_message):
 
 def main():
     # --- Configuration & Paths ---
-    RAW_ROOT_PATH = r"D:\idan\ASLData\asl_alphabet_train"
-    AUGMENTED_DATA_PATH = r"D:\idan\ASLDataWithBackGrounds"
-    BACKGROUNDS_DIRS = [r"D:\idan\BackGrounds"]
+    RAW_ROOT_PATH = os.environ.get("ASL_TRAIN_DIR") or (
+        "/data/asl_alphabet_train"
+        if os.path.exists("/data/asl_alphabet_train")
+        else r"D:\idan\ASLData\asl_alphabet_train"
+    )
+    AUGMENTED_DATA_PATH = os.environ.get("ASL_AUGMENTED_DIR") or (
+        "/augmented"
+        if os.path.exists("/augmented")
+        else r"D:\idan\ASLDataWithBackGrounds"
+    )
+
+    backgrounds_env = os.environ.get("ASL_BACKGROUNDS_DIRS")
+    if backgrounds_env:
+        BACKGROUNDS_DIRS = backgrounds_env.split(os.pathsep)
+    elif os.path.exists("/backgrounds"):
+        BACKGROUNDS_DIRS = ["/backgrounds"]
+    else:
+        BACKGROUNDS_DIRS = [r"D:\idan\BackGrounds"]
 
     # Start from C because A and B were already processed.
     START_FROM = "B"

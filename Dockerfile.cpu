@@ -13,4 +13,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python", "base_line_model.py"]
+CMD ["python", "training_models/base_line_model.py"]

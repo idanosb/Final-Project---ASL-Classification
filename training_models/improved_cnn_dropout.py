@@ -6,7 +6,10 @@ from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 import os
 import time
+from pathlib import Path
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 if os.path.exists('/data/asl_alphabet_train'):
     data_dir = '/data/asl_alphabet_train'
@@ -15,8 +18,8 @@ else:
 
 # 1. Base settings
 
-batch_size = 128
-epochs = 15
+batch_size = 64
+epochs = 10
 if not torch.cuda.is_available():
     raise RuntimeError(
         "CUDA GPU is required. "
@@ -31,12 +34,16 @@ if torch.cuda.is_available():
     print("GPU:", torch.cuda.get_device_name(0))
     print("Torch CUDA version:", torch.version.cuda)
 
-OUTPUT_DIR = "/results/tuned_baseline" if os.path.exists("/results") else "./tuned_baseline"
+OUTPUT_DIR = (
+    Path("/results/improved_cnn_dropout")
+    if os.path.exists("/results")
+    else PROJECT_ROOT / "improved_cnn_dropout"
+)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 best_val_acc = 0.0
-BEST_MODEL_PATH = os.path.join(OUTPUT_DIR, "best_tuned_baseline_model.pth")
+BEST_MODEL_PATH = os.path.join(OUTPUT_DIR, "best_improved_cnn_dropout_model.pth")
 
 # 2. Data preparation
 transform = transforms.Compose([
@@ -61,16 +68,21 @@ class SimpleCNN(nn.Module):
             nn.Conv2d(3, 32, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
+
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, 2)
         )
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(64 * 16 * 16, 128),# Flatten: [64 channels * 16 height * 16 width] -> 16,384 features
-                                         # Latent space: Compressed to 128 dimensions for classification
+            nn.Linear(128 * 8 * 8, 256),
             nn.ReLU(),
-            nn.Linear(128, num_classes)
+            nn.Dropout(0.5),
+            nn.Linear(256, num_classes)
         )
 
     def forward(self, x):
@@ -80,7 +92,7 @@ class SimpleCNN(nn.Module):
 # 4. Setup
 model = SimpleCNN(num_classes=len(full_dataset.classes)).to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0005)
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 train_losses, val_losses = [], []
 train_accuracies, val_accuracies = [], []

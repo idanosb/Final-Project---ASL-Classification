@@ -6,33 +6,27 @@ from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 import os
 import time
+from pathlib import Path
 
 
-data_dir = os.environ.get("ASL_TRAIN_DIR")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-if not data_dir:
-    raise RuntimeError(
-        "ASL_TRAIN_DIR is not defined."
-    )
+if os.path.exists('/data/asl_alphabet_train'):
+    data_dir = '/data/asl_alphabet_train'
+else:
+    data_dir = r'D:\idan\ASLData\asl_alphabet_train'
 
-if not os.path.isdir(data_dir):
-    raise FileNotFoundError(
-        f"Training dataset was not found: {data_dir}"
-    )
-
-print("Training dataset:", data_dir)
 # 1. Base settings
 
-batch_size = 64
-epochs = 10
+batch_size = 128
+epochs = 15
 if not torch.cuda.is_available():
     raise RuntimeError(
         "CUDA GPU is required. "
-        "Enable GPU in Colab before running this script."
+        "Enable GPU before running this script."
     )
 
 device = torch.device("cuda")
-
 print("CUDA available:", torch.cuda.is_available())
 print("Using device:", device)
 
@@ -40,27 +34,16 @@ if torch.cuda.is_available():
     print("GPU:", torch.cuda.get_device_name(0))
     print("Torch CUDA version:", torch.version.cuda)
 
-# GPU -> baseline, CPU -> baseline_cpu_run_1
-run_name = "baseline"
-# Docker: /results is connected to the project's results folder.
-# Local run: save inside ./results as well.
-drive_output_dir = os.environ.get("ASL_OUTPUT_DIR")
-
-if drive_output_dir:
-    OUTPUT_DIR = os.path.join(drive_output_dir, run_name)
-elif os.path.exists("/results"):
-    OUTPUT_DIR = os.path.join("/results", run_name)
-else:
-    OUTPUT_DIR = os.path.join("results", run_name)
-
+OUTPUT_DIR = (
+    Path("/results/tuned_baseline")
+    if os.path.exists("/results")
+    else PROJECT_ROOT / "tuned_baseline"
+)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-print("Results directory:", OUTPUT_DIR)
-
 
 
 best_val_acc = 0.0
-BEST_MODEL_PATH = os.path.join(OUTPUT_DIR, "best_baseline_model.pth")
+BEST_MODEL_PATH = os.path.join(OUTPUT_DIR, "best_tuned_baseline_model.pth")
 
 # 2. Data preparation
 transform = transforms.Compose([
@@ -104,7 +87,7 @@ class SimpleCNN(nn.Module):
 # 4. Setup
 model = SimpleCNN(num_classes=len(full_dataset.classes)).to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.0005)
 
 train_losses, val_losses = [], []
 train_accuracies, val_accuracies = [], []

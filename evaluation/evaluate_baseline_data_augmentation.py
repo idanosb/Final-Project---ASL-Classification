@@ -6,7 +6,10 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 if os.path.exists("/data/asl_alphabet_test"):
     test_dir = "/data/asl_alphabet_test"
@@ -22,7 +25,7 @@ if not torch.cuda.is_available():
 
 device = torch.device("cuda")
 # Must match the folder used during training
-run_name = "baseline"
+run_name = "baseline_data_augmentation"
 drive_output_dir = os.environ.get("ASL_OUTPUT_DIR")
 
 if drive_output_dir:
@@ -30,12 +33,12 @@ if drive_output_dir:
 elif os.path.exists("/results"):
     OUTPUT_DIR = os.path.join("/results", run_name)
 else:
-    OUTPUT_DIR = os.path.join("results", run_name)
+    OUTPUT_DIR = PROJECT_ROOT / "results" / run_name
 
 
 print("Results directory:", OUTPUT_DIR)
 
-MODEL_PATH = os.path.join(OUTPUT_DIR, "best_baseline_model.pth")
+MODEL_PATH = os.path.join(OUTPUT_DIR, "best_baseline_data_augmentation_model.pth")
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
     transforms.ToTensor(),
@@ -108,7 +111,7 @@ cm = confusion_matrix(all_labels, all_preds)
 
 plt.figure(figsize=(12, 10))
 plt.imshow(cm)
-plt.title("Confusion Matrix - Baseline CNN")
+plt.title("Confusion Matrix - Baseline CNN With Data Augmentation")
 plt.xlabel("Predicted Label")
 plt.ylabel("True Label")
 plt.xticks(np.arange(len(test_dataset.classes)), test_dataset.classes, rotation=90)

@@ -7,4 +7,4 @@ RUN pip install -r requirements.txt || true
 
 COPY . .
 
-CMD ["python", "baseLine_model.py"]
+CMD ["python", "training_models/base_line_model.py"]

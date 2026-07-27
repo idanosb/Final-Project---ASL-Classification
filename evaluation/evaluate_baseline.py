@@ -6,15 +6,15 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 if os.path.exists("/data/asl_alphabet_test"):
     test_dir = "/data/asl_alphabet_test"
 else:
     test_dir = r"D:\idan\ASLData\asl_alphabet_test"
-
-OUTPUT_DIR = "/results/improved_cnn_dropout" if os.path.exists("/results") else "./improved_cnn_dropout"
-MODEL_PATH = os.path.join(OUTPUT_DIR, "best_improved_cnn_dropout_model.pth")
 
 batch_size = 64
 if not torch.cuda.is_available():
@@ -24,6 +24,21 @@ if not torch.cuda.is_available():
     )
 
 device = torch.device("cuda")
+# Must match the folder used during training
+run_name = "baseline"
+drive_output_dir = os.environ.get("ASL_OUTPUT_DIR")
+
+if drive_output_dir:
+    OUTPUT_DIR = os.path.join(drive_output_dir, run_name)
+elif os.path.exists("/results"):
+    OUTPUT_DIR = os.path.join("/results", run_name)
+else:
+    OUTPUT_DIR = PROJECT_ROOT / "results" / run_name
+
+
+print("Results directory:", OUTPUT_DIR)
+
+MODEL_PATH = os.path.join(OUTPUT_DIR, "best_baseline_model.pth")
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
     transforms.ToTensor(),
@@ -40,21 +55,15 @@ class SimpleCNN(nn.Module):
             nn.Conv2d(3, 32, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
-
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, 2)
         )
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(128 * 8 * 8, 256),
+            nn.Linear(64 * 16 * 16, 128),
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(256, num_classes)
+            nn.Linear(128, num_classes)
         )
 
     def forward(self, x):
@@ -102,7 +111,7 @@ cm = confusion_matrix(all_labels, all_preds)
 
 plt.figure(figsize=(12, 10))
 plt.imshow(cm)
-plt.title("Confusion Matrix - Improved CNN + Dropout")
+plt.title("Confusion Matrix - Baseline CNN")
 plt.xlabel("Predicted Label")
 plt.ylabel("True Label")
 plt.xticks(np.arange(len(test_dataset.classes)), test_dataset.classes, rotation=90)

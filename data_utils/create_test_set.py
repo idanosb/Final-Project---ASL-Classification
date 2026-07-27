@@ -2,8 +2,16 @@ import os
 import random
 import shutil
 
-TRAIN_DIR = r"D:\idan\ASLData\asl_alphabet_train"
-TEST_DIR = r"D:\idan\ASLData\asl_alphabet_test"
+TRAIN_DIR = os.environ.get("ASL_TRAIN_DIR") or (
+    "/data/asl_alphabet_train"
+    if os.path.exists("/data/asl_alphabet_train")
+    else r"D:\idan\ASLData\asl_alphabet_train"
+)
+TEST_DIR = os.environ.get("ASL_TEST_DIR") or (
+    "/data/asl_alphabet_test"
+    if os.path.exists("/data")
+    else r"D:\idan\ASLData\asl_alphabet_test"
+)
 
 TEST_RATIO = 0.10
 SEED = 42

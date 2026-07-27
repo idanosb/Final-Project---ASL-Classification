@@ -1,0 +1,17 @@
+Experiment: Baseline CNN with Data Augmentation
+Training Samples: 118326
+Validation Samples: 29582
+Batch Size: 64
+Epochs: 10
+Learning Rate: 0.001
+Random Seed: 42
+Training Time: 20m 8s
+Best Validation Accuracy: 93.45%
+Best Model Path: /results/baseline_data_augmentation/best_baseline_data_augmentation_model.pth
+
+Data Augmentation:
+- Random rotation: +/- 10 degrees
+- Random translation: up to 10%
+- Random scale: 90% to 110%
+- Random brightness change: 20%
+- Random contrast change: 20%
