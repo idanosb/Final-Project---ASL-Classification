@@ -1,3 +1,4 @@
 
-# Trained VGG16 model
-results/VGG16_transfer_learning/VGG16_transfer_learning.pth
+Add-Content .gitignore "*.pth"
+*.pth
+*.pth
