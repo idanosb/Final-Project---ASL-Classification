@@ -11,19 +11,23 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
+#check if data directory exist
 if os.path.exists("/data/asl_alphabet_test"):
     test_dir = "/data/asl_alphabet_test"
 else:
     test_dir = r"D:\idan\ASLData\asl_alphabet_test"
 
+#output directory path
 OUTPUT_DIR = (
     Path("/results/tuned_baseline")
     if os.path.exists("/results")
     else PROJECT_ROOT / "tuned_baseline"
 )
+#load the model
 MODEL_PATH = os.path.join(OUTPUT_DIR, "best_tuned_baseline_model.pth")
 
 batch_size = 64
+#check if gpu is available
 if not torch.cuda.is_available():
     raise RuntimeError(
         "CUDA GPU is required. "
@@ -40,6 +44,7 @@ transform = transforms.Compose([
 test_dataset = datasets.ImageFolder(test_dir, transform=transform)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
+#model architecture
 class SimpleCNN(nn.Module):
     def __init__(self, num_classes):
         super(SimpleCNN, self).__init__()
@@ -65,11 +70,13 @@ class SimpleCNN(nn.Module):
 
 model = SimpleCNN(num_classes=len(test_dataset.classes)).to(device)
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+#start evaluate the model
 model.eval()
 
 all_labels = []
 all_preds = []
 
+#evaluate loop
 with torch.no_grad():
     for images, labels in test_loader:
         images = images.to(device)
@@ -79,11 +86,13 @@ with torch.no_grad():
         all_labels.extend(labels.numpy())
         all_preds.extend(preds.cpu().numpy())
 
+#calculate confusion metrics
 accuracy = accuracy_score(all_labels, all_preds)
 precision = precision_score(all_labels, all_preds, average="weighted", zero_division=0)
 recall = recall_score(all_labels, all_preds, average="weighted", zero_division=0)
 f1 = f1_score(all_labels, all_preds, average="weighted", zero_division=0)
 
+#print the results
 print("========== TEST RESULTS ==========")
 print(f"Test Accuracy : {accuracy * 100:.2f}%")
 print(f"Precision     : {precision * 100:.2f}%")
@@ -91,6 +100,7 @@ print(f"Recall        : {recall * 100:.2f}%")
 print(f"F1 Score      : {f1 * 100:.2f}%")
 print("==================================")
 
+#write the results into text file
 summary_path = os.path.join(OUTPUT_DIR, "test_summary.txt")
 with open(summary_path, "w") as f:
     f.write("========== TEST RESULTS ==========\n")
@@ -101,6 +111,7 @@ with open(summary_path, "w") as f:
 
 cm = confusion_matrix(all_labels, all_preds)
 
+#plott condusion metrics
 plt.figure(figsize=(12, 10))
 plt.imshow(cm)
 plt.title("Confusion Matrix - Tuned Baseline CNN")

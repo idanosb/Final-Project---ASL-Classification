@@ -1,7 +1,6 @@
 import os
 import time
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
@@ -9,15 +8,10 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Subset, random_split
 from torchvision import datasets, transforms
 
-
-# ============================================================
-# 1. Project paths and dataset validation
-# ============================================================
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 data_dir = os.environ.get("ASL_TRAIN_DIR")
-
+#check if data folder exist
 if not data_dir:
     raise RuntimeError(
         "ASL_TRAIN_DIR is not defined."
@@ -30,18 +24,15 @@ if not os.path.isdir(data_dir):
 
 print("Training dataset:", data_dir)
 
-
-# ============================================================
-# 2. Base experiment settings
-# ============================================================
-
+#settings
 batch_size = 64
 epochs = 10
 learning_rate = 0.001
 
-# Using a fixed seed makes the train-validation split reproducible.
+#using a fixed seed makes the train-validation split reproducible.
 random_seed = 42
 
+#check if gpu is available
 if not torch.cuda.is_available():
     raise RuntimeError(
         "CUDA GPU is required. "
@@ -50,30 +41,30 @@ if not torch.cuda.is_available():
 
 device = torch.device("cuda")
 
+#print wich device is using to train
 print("CUDA available:", torch.cuda.is_available())
 print("Using device:", device)
 print("GPU:", torch.cuda.get_device_name(0))
 print("Torch CUDA version:", torch.version.cuda)
 
 
-# A separate run name prevents overwriting the original baseline results.
+#model name in result folder
 run_name = "baseline_data_augmentation"
 
 drive_output_dir = os.environ.get("ASL_OUTPUT_DIR")
 
+#output folder path
 if drive_output_dir:
     OUTPUT_DIR = os.path.join(drive_output_dir, run_name)
 elif os.path.exists("/results"):
     OUTPUT_DIR = os.path.join("/results", run_name)
 else:
     OUTPUT_DIR = PROJECT_ROOT / "results" / run_name
-
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
 print("Results directory:", OUTPUT_DIR)
-
 best_val_acc = 0.0
 
+#save the best model
 BEST_MODEL_PATH = os.path.join(
     OUTPUT_DIR,
     "best_baseline_data_augmentation_model.pth"
@@ -189,11 +180,7 @@ print("Class names:", index_dataset.classes)
 print("Training samples:", len(train_dataset))
 print("Validation samples:", len(val_dataset))
 
-
-# ============================================================
-# 5. Data loaders
-# ============================================================
-
+#train data loader
 train_loader = DataLoader(
     train_dataset,
     batch_size=batch_size,
@@ -202,6 +189,7 @@ train_loader = DataLoader(
     pin_memory=True
 )
 
+#validation data loader
 val_loader = DataLoader(
     val_dataset,
     batch_size=batch_size,
@@ -210,11 +198,7 @@ val_loader = DataLoader(
     pin_memory=True
 )
 
-
-# ============================================================
-# 6. Baseline CNN architecture
-# ============================================================
-
+#model architecture
 class SimpleCNN(nn.Module):
     def __init__(self, num_classes):
         super(SimpleCNN, self).__init__()
@@ -228,7 +212,6 @@ class SimpleCNN(nn.Module):
             ),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
-
             nn.Conv2d(
                 in_channels=32,
                 out_channels=64,
@@ -238,22 +221,13 @@ class SimpleCNN(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
-
         self.classifier = nn.Sequential(
             nn.Flatten(),
-
-            # After two pooling layers:
-            # 64x64 -> 32x32 -> 16x16
-            #
-            # Flattened feature size:
-            # 64 channels * 16 height * 16 width = 16,384 features
             nn.Linear(
                 64 * 16 * 16,
                 128
             ),
-
             nn.ReLU(),
-
             nn.Linear(
                 128,
                 num_classes
@@ -263,18 +237,13 @@ class SimpleCNN(nn.Module):
     def forward(self, x):
         x = self.features(x)
         x = self.classifier(x)
-
         return x
-
-
-# ============================================================
-# 7. Model, loss function and optimizer
-# ============================================================
 
 model = SimpleCNN(
     num_classes=len(index_dataset.classes)
 ).to(device)
 
+#loss function
 criterion = nn.CrossEntropyLoss()
 
 optimizer = optim.Adam(
@@ -288,24 +257,13 @@ val_losses = []
 train_accuracies = []
 val_accuracies = []
 
-
-# ============================================================
-# 8. Training and validation loop
-# ============================================================
-
+#training and validation loop
 print(f"Starting training on {device}...")
 
 start_time = time.time()
-
 for epoch in range(epochs):
     print(f"\n--- Starting Epoch {epoch + 1}/{epochs} ---")
-
-    # --------------------------------------------------------
-    # Training phase
-    # --------------------------------------------------------
-
     model.train()
-
     running_loss = 0.0
     correct_train = 0
     total_train = 0
@@ -321,19 +279,19 @@ for epoch in range(epochs):
             non_blocking=True
         )
 
-        # Clear gradients from the previous batch.
+        #reset gradients
         optimizer.zero_grad()
 
-        # Forward propagation.
+        #Forward propagation
         outputs = model(images)
 
-        # Calculate the classification loss.
+        #calcaulate the loss.
         loss = criterion(outputs, labels)
 
-        # Backpropagation.
+        #backpropagation
         loss.backward()
 
-        # Update the model parameters.
+        #update the model parameters.
         optimizer.step()
 
         running_loss += loss.item()
@@ -365,11 +323,7 @@ for epoch in range(epochs):
         epoch_train_accuracy
     )
 
-
-    # --------------------------------------------------------
-    # Validation phase
-    # --------------------------------------------------------
-
+    #start evaluate the model
     model.eval()
 
     val_loss = 0.0
@@ -425,7 +379,7 @@ for epoch in range(epochs):
     )
 
 
-    # Save the model only when validation accuracy improves.
+    #check if new epoch grans us better model
     if epoch_val_accuracy > best_val_acc:
         best_val_acc = epoch_val_accuracy
 
@@ -448,56 +402,37 @@ for epoch in range(epochs):
         f"Validation Accuracy: {epoch_val_accuracy:.2f}%"
     )
 
-
-# ============================================================
-# 9. Calculate total training time
-# ============================================================
-
+#calculate training time
 end_time = time.time()
-
 elapsed_time = end_time - start_time
-
 minutes = int(elapsed_time // 60)
 seconds = int(elapsed_time % 60)
 
-
-# ============================================================
-# 10. Plot training results
-# ============================================================
-
+#plot training results
 plt.figure(figsize=(12, 5))
-
 plt.subplot(1, 2, 1)
-
 plt.plot(
     train_losses,
     label="Train Loss",
     color="purple"
 )
-
 plt.plot(
     val_losses,
     label="Validation Loss",
     color="orange"
 )
-
 plt.title(
     "Loss Evolution - Baseline with Data Augmentation"
 )
-
 plt.xlabel("Epoch")
 plt.ylabel("Loss")
 plt.legend()
-
-
 plt.subplot(1, 2, 2)
-
 plt.plot(
     train_accuracies,
     label="Train Accuracy",
     color="purple"
 )
-
 plt.plot(
     val_accuracies,
     label="Validation Accuracy",
@@ -507,31 +442,22 @@ plt.plot(
 plt.title(
     "Accuracy Evolution - Baseline with Data Augmentation"
 )
-
 plt.xlabel("Epoch")
 plt.ylabel("Accuracy (%)")
 plt.legend()
-
 plt.tight_layout()
-
 plot_path = os.path.join(
     OUTPUT_DIR,
     "training_results.png"
 )
-
 plt.savefig(
     plot_path,
     dpi=300,
     bbox_inches="tight"
 )
-
 plt.close()
 
-
-# ============================================================
-# 11. Save experiment summary
-# ============================================================
-
+#summary text file path
 summary_path = os.path.join(
     OUTPUT_DIR,
     "training_summary.txt"
@@ -607,11 +533,7 @@ with open(
         "- Random contrast change: 20%\n"
     )
 
-
-# ============================================================
-# 12. Final output
-# ============================================================
-
+#print summary
 print("\nTraining finished!")
 
 print(

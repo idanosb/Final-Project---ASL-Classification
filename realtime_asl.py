@@ -1,6 +1,5 @@
 from pathlib import Path
 from collections import Counter, deque
-
 import cv2
 import torch
 import torch.nn as nn
@@ -8,15 +7,13 @@ from PIL import Image
 from torchvision import models, transforms
 
 
-# =========================================================
-# Configuration
-# =========================================================
-
+#loading trained model
 MODEL_PATH = Path(
     r"D:\idan\FinalProject\results\VGG16_transfer_learning"
     r"\VGG16_transfer_learning.pth"
 )
 
+#camera settings
 CAMERA_INDEX = 0
 CONFIDENCE_THRESHOLD = 70.0
 ROI_SIZE = 350
@@ -33,31 +30,22 @@ CLASS_NAMES = [
 ]
 
 
-# =========================================================
-# Device selection
-# =========================================================
 
+#Device selection(GPU or CPU)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 
-# =========================================================
-# Validate model path
-# =========================================================
 
+#check if model exist
 if not MODEL_PATH.exists():
     raise FileNotFoundError(
         f"Model file was not found:\n{MODEL_PATH}"
     )
 
 
-# =========================================================
-# Image preprocessing
-#
-# This preprocessing must match the preprocessing used during
-# training and evaluation.
-# =========================================================
 
+#match the preprocess to exact reprocces of the training
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -68,10 +56,8 @@ transform = transforms.Compose([
 ])
 
 
-# =========================================================
-# Build and load the VGG16 model
-# =========================================================
 
+#load the VGG16 model
 model = models.vgg16(weights=None)
 
 model.classifier[6] = nn.Linear(
@@ -91,10 +77,8 @@ model.eval()
 print("Model loaded successfully.")
 
 
-# =========================================================
-# Open the webcam
-# =========================================================
 
+#Open the webcamera
 camera = cv2.VideoCapture(CAMERA_INDEX)
 
 if not camera.isOpened():
@@ -104,10 +88,7 @@ if not camera.isOpened():
     )
 
 
-# =========================================================
 # Real-time prediction loop
-# =========================================================
-
 while True:
     success, frame = camera.read()
 

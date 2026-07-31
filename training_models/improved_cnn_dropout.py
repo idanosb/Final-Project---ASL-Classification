@@ -11,15 +11,17 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
+#cehck if data folder exist
 if os.path.exists('/data/asl_alphabet_train'):
     data_dir = '/data/asl_alphabet_train'
 else:
     data_dir = r'D:\idan\ASLData\asl_alphabet_train'
 
-# 1. Base settings
-
+#base settings
 batch_size = 64
 epochs = 10
+
+#check if gpu is avaiable
 if not torch.cuda.is_available():
     raise RuntimeError(
         "CUDA GPU is required. "
@@ -34,6 +36,7 @@ if torch.cuda.is_available():
     print("GPU:", torch.cuda.get_device_name(0))
     print("Torch CUDA version:", torch.version.cuda)
 
+#set output folder path
 OUTPUT_DIR = (
     Path("/results/improved_cnn_dropout")
     if os.path.exists("/results")
@@ -41,17 +44,17 @@ OUTPUT_DIR = (
 )
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-
 best_val_acc = 0.0
 BEST_MODEL_PATH = os.path.join(OUTPUT_DIR, "best_improved_cnn_dropout_model.pth")
 
-# 2. Data preparation
+#data preparation
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 
+#split data to train and validation
 full_dataset = datasets.ImageFolder(data_dir, transform=transform)
 train_size = int(0.8 * len(full_dataset))
 val_size = len(full_dataset) - train_size
@@ -60,7 +63,7 @@ train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4,     pin_memory=(device.type == "cuda"))
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-# 3. Model architecture
+#model architecture
 class SimpleCNN(nn.Module):
     def __init__(self, num_classes):
         super(SimpleCNN, self).__init__()
@@ -89,19 +92,20 @@ class SimpleCNN(nn.Module):
         x = self.features(x)
         return self.classifier(x)
 
-# 4. Setup
+#Setup
 model = SimpleCNN(num_classes=len(full_dataset.classes)).to(device)
+#loss function
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 train_losses, val_losses = [], []
 train_accuracies, val_accuracies = [], []
 
-# 5. Training loop
+
 print(f"Starting training on {device}...")
 
 start_time = time.time()
-
+#training loop
 for epoch in range(epochs):
     print(f"--- Starting Epoch {epoch+1}/{epochs} ---")
 
@@ -112,9 +116,11 @@ for epoch in range(epochs):
 
     for images, labels in train_loader:
         images, labels = images.to(device), labels.to(device)
+        #reset gradients
         optimizer.zero_grad()
         outputs = model(images)
         loss = criterion(outputs, labels)
+        #back propagation
         loss.backward()
         optimizer.step()
 
@@ -126,11 +132,13 @@ for epoch in range(epochs):
     train_losses.append(running_loss / len(train_loader))
     train_accuracies.append(100 * correct_train / total_train)
 
+    #start evalute the model
     model.eval()
     val_loss = 0.0
     correct_val = 0
     total_val = 0
 
+    #evaluate loop
     with torch.no_grad():
         for images, labels in val_loader:
             images, labels = images.to(device), labels.to(device)
@@ -151,14 +159,15 @@ for epoch in range(epochs):
 
     print(f"Epoch {epoch+1} Summary | Train Loss: {train_losses[-1]:.4f} | Val Loss: {val_losses[-1]:.4f} | Val Acc: {val_accuracies[-1]:.2f}%")
 
+#calculate total training time
 end_time = time.time()
 elapsed_time = end_time - start_time
 minutes = int(elapsed_time // 60)
 seconds = int(elapsed_time % 60)
 
-# 6. Plotting
+#plotting
+#loss graph
 plt.figure(figsize=(12, 5))
-
 plt.subplot(1, 2, 1)
 plt.plot(train_losses, label='Train Loss', color='purple')
 plt.plot(val_losses, label='Validation Loss', color='orange')
@@ -167,6 +176,7 @@ plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend()
 
+#accuracy graph
 plt.subplot(1, 2, 2)
 plt.plot(train_accuracies, label='Train Accuracy', color='purple')
 plt.plot(val_accuracies, label='Validation Accuracy', color='orange')
@@ -175,6 +185,7 @@ plt.xlabel('Epoch')
 plt.ylabel('Accuracy (%)')
 plt.legend()
 
+#save text file summary
 plt.savefig(os.path.join(OUTPUT_DIR, "training_results.png"))
 
 summary_path = os.path.join(OUTPUT_DIR, "training_summary.txt")
@@ -183,6 +194,7 @@ with open(summary_path, "w") as f:
     f.write(f"Best Validation Accuracy: {best_val_acc:.2f}%\n")
     f.write(f"Best Model Path: {BEST_MODEL_PATH}\n")
 
+#print summary
 print(f"Training finished! Results plot saved to {OUTPUT_DIR}")
 print(f"Best model saved to {BEST_MODEL_PATH}")
 print(f"Best Validation Accuracy: {best_val_acc:.2f}%")

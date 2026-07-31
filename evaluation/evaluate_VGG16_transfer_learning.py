@@ -12,19 +12,23 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
+#check if data directory exist
 if os.path.exists("/data/asl_alphabet_test"):
     test_dir = "/data/asl_alphabet_test"
 else:
     test_dir = r"D:\idan\ASLData\asl_alphabet_test"
 
+#output directory path
 OUTPUT_DIR = (
     Path("/results/VGG16_transfer_learning")
     if os.path.exists("/results")
     else PROJECT_ROOT / "VGG16_transfer_learning"
 )
+#load the model
 MODEL_PATH = os.path.join(OUTPUT_DIR, "VGG16_transfer_learning.pth")
 
 batch_size = 64
+#check if gpu is available
 if not torch.cuda.is_available():
     raise RuntimeError(
         "CUDA GPU is required. "
@@ -40,7 +44,7 @@ transform = transforms.Compose([
         std=[0.229, 0.224, 0.225]
     )
 ])
-
+#load the data
 test_dataset = datasets.ImageFolder(test_dir, transform=transform)
 test_loader = DataLoader(
     test_dataset,
@@ -52,16 +56,19 @@ test_loader = DataLoader(
 
 num_classes = len(test_dataset.classes)
 
+#model architecture
 model = vgg16(weights=None)
 model.classifier[6] = nn.Linear(model.classifier[6].in_features, num_classes)
 
 model = model.to(device)
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+#start evaluate the model
 model.eval()
 
 all_labels = []
 all_preds = []
 
+#evaluate loop
 with torch.no_grad():
     for images, labels in test_loader:
         images = images.to(device)
@@ -72,11 +79,13 @@ with torch.no_grad():
         all_labels.extend(labels.numpy())
         all_preds.extend(preds.cpu().numpy())
 
+#calculate the metrics
 accuracy = accuracy_score(all_labels, all_preds)
 precision = precision_score(all_labels, all_preds, average="weighted", zero_division=0)
 recall = recall_score(all_labels, all_preds, average="weighted", zero_division=0)
 f1 = f1_score(all_labels, all_preds, average="weighted", zero_division=0)
 
+#print the results
 print("========== TEST RESULTS ==========")
 print(f"Test Accuracy : {accuracy * 100:.2f}%")
 print(f"Precision     : {precision * 100:.2f}%")
@@ -84,6 +93,7 @@ print(f"Recall        : {recall * 100:.2f}%")
 print(f"F1 Score      : {f1 * 100:.2f}%")
 print("==================================")
 
+#write the results into text file
 summary_path = os.path.join(OUTPUT_DIR, "test_summary.txt")
 with open(summary_path, "w") as f:
     f.write("========== TEST RESULTS ==========\n")
@@ -92,6 +102,8 @@ with open(summary_path, "w") as f:
     f.write(f"Recall        : {recall * 100:.2f}%\n")
     f.write(f"F1 Score      : {f1 * 100:.2f}%\n")
 
+
+#plott confusion metrics
 cm = confusion_matrix(all_labels, all_preds)
 
 plt.figure(figsize=(12, 10))

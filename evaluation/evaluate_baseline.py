@@ -11,12 +11,15 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
+#check if data directory exist
 if os.path.exists("/data/asl_alphabet_test"):
     test_dir = "/data/asl_alphabet_test"
 else:
     test_dir = r"D:\idan\ASLData\asl_alphabet_test"
 
 batch_size = 64
+
+#cuda(check if GPU is available)
 if not torch.cuda.is_available():
     raise RuntimeError(
         "CUDA GPU is required. "
@@ -28,6 +31,7 @@ device = torch.device("cuda")
 run_name = "baseline"
 drive_output_dir = os.environ.get("ASL_OUTPUT_DIR")
 
+#output directory path
 if drive_output_dir:
     OUTPUT_DIR = os.path.join(drive_output_dir, run_name)
 elif os.path.exists("/results"):
@@ -38,6 +42,7 @@ else:
 
 print("Results directory:", OUTPUT_DIR)
 
+#load trained model
 MODEL_PATH = os.path.join(OUTPUT_DIR, "best_baseline_model.pth")
 transform = transforms.Compose([
     transforms.Resize((64, 64)),
@@ -48,6 +53,7 @@ transform = transforms.Compose([
 test_dataset = datasets.ImageFolder(test_dir, transform=transform)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
+#model architecture
 class SimpleCNN(nn.Module):
     def __init__(self, num_classes):
         super(SimpleCNN, self).__init__()
@@ -73,11 +79,13 @@ class SimpleCNN(nn.Module):
 
 model = SimpleCNN(num_classes=len(test_dataset.classes)).to(device)
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+#start evalute the model
 model.eval()
 
 all_labels = []
 all_preds = []
 
+#evaluate loop
 with torch.no_grad():
     for images, labels in test_loader:
         images = images.to(device)
@@ -87,11 +95,13 @@ with torch.no_grad():
         all_labels.extend(labels.numpy())
         all_preds.extend(preds.cpu().numpy())
 
+#calclate metrics
 accuracy = accuracy_score(all_labels, all_preds)
 precision = precision_score(all_labels, all_preds, average="weighted", zero_division=0)
 recall = recall_score(all_labels, all_preds, average="weighted", zero_division=0)
 f1 = f1_score(all_labels, all_preds, average="weighted", zero_division=0)
 
+#print the result
 print("========== TEST RESULTS ==========")
 print(f"Test Accuracy : {accuracy * 100:.2f}%")
 print(f"Precision     : {precision * 100:.2f}%")
@@ -99,6 +109,7 @@ print(f"Recall        : {recall * 100:.2f}%")
 print(f"F1 Score      : {f1 * 100:.2f}%")
 print("==================================")
 
+#wirte into text file the results
 summary_path = os.path.join(OUTPUT_DIR, "test_summary.txt")
 with open(summary_path, "w") as f:
     f.write("========== TEST RESULTS ==========\n")
@@ -107,6 +118,8 @@ with open(summary_path, "w") as f:
     f.write(f"Recall        : {recall * 100:.2f}%\n")
     f.write(f"F1 Score      : {f1 * 100:.2f}%\n")
 
+
+#pllot confusion metrix
 cm = confusion_matrix(all_labels, all_preds)
 
 plt.figure(figsize=(12, 10))
